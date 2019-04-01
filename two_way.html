@@ -64,7 +64,7 @@
     Object.defineProperty(obj, key, {
       get: function () {
         //***************以下新增代码********************
-        //将订阅了这个属性的订阅者放入到这个属性对应的队列中，有了这个if判断就可以保证只有在watcher初始化       的时候才会有加入队列这个动作，保证不会重复加入
+        //将订阅了这个属性的订阅者放入到这个属性对应的队列中，有了这个if判断就可以保证只有在watcher初始化的时候才会有加入队列这个动作，保证不会重复加入
         if (Subscripters.target != null) {
           subscripters.addSubs(Subscripters.target);
         }
@@ -81,7 +81,7 @@
     })
   }
 
-  //将对于data中属性的操作都转化为对vm属性的操作，所以，原本vm.data[key]就可以直接写     为vm.key这种直接的形式
+  //将对于data中属性的操作都转化为对vm属性的操作，所以，原本vm.data[key]就可以直接写为vm.key这种直接的形式
   function translateDataToVm(obj, vm) {
     Object.keys(obj).forEach(key => {
       defProperty(vm, key, obj[key])
@@ -89,16 +89,16 @@
   }
   
   function Watcher(vm, node, name) {
-    Subscripters.target = this; //Subscripters大兄弟，我是'name'的订阅者，初来乍到，记得把我加入到主        题'name'的数组中哦。
+    Subscripters.target = this; //Subscripters大兄弟，我是'name'的订阅者，初来乍到，记得把我加入到主题'name'的数组中哦。
     this.vm = vm;
     this.node = node;
     this.name = name;
     this.update(); //这一步主要完成更新和加入更新数组
-    Subscripters.target = null; //Subscripters大兄弟，你既然已经把我加入了主题'name'的更新数组，那么下次    执行update方法的时候就不需要再加入一次啦！！
+    Subscripters.target = null; //Subscripters大兄弟，你既然已经把我加入了主题'name'的更新数组，那么下次执行update方法的时候就不需要再加入一次啦！！
   }
   Watcher.prototype = {
     update: function () {
-      //这一步会触发vm的访问器属性，进而将watcher放入观察者的队列（只有在watcher初始化的时候会有放入队列这个    操作，所以在放入时需要做一下判断）
+      //这一步会触发vm的访问器属性，进而将watcher放入观察者的队列（只有在watcher初始化的时候会有放入队列这个操作，所以在放入时需要做一下判断）
       this.node.nodeValue = this.vm[this.name];
     }
   }
