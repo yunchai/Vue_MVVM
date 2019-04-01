@@ -1,0 +1,96 @@
+<div id='chai'>
+  <input id='in' v-model="test">
+  {{test}}
+</div>
+
+<script>
+  var vm = new Vue({
+    el: 'chai',
+    data: {
+      test: 'hello two_way'
+    }
+  })
+  //劫持你想要处理的元素，将元素外部的包裹元素传入
+  function domToFragment(node, vm) {
+    var domf = document.createDocumentFragment();
+    var child;
+    while (child = node.firstChild) {
+      compile(child, vm); //将dom和vue实例中的data相互关联
+      domf.appendChild(child);
+    }
+    return domf;
+  }
+
+  function compile(node, vm) {
+    var reg = /\{\{(.*)\}\}/; //能够匹配{{test}}这种dom的正则
+    //依据节点的类型做不同的处理
+    //若节点为一般普通元素
+    if (node.nodeType === 1) {
+      var attr = node.attributes; //得到该元素的所有属性
+      for (let i = 0; i < attr.length; i++) {
+        if (attr[i].nodeName === 'v-model') {
+          let name = attr[i].nodeValue;
+
+          //************以下新增代码**************
+          //添加dom监听，将发生变化的dom的值赋给vue实例
+          node.addEventListener('input', e => {
+            vm[name] = e.target.value;
+          })
+          //************以上新增代码**************
+
+          //************以下变化代码**************
+          node.value = vm[name];
+          //************以上变化代码**************
+
+          node.removeAttribute('v-model');
+        }
+      }
+    }
+
+    //节点类型是text。也就是{{...}}这种形式的话
+    if (node.nodeType === 3) {
+      if (reg.test(node.nodeValue)) {
+        var name = RegExp.$1;
+        name = name.trim();
+
+        //************以下变化代码**************
+        node.nodeValue = vm[name];
+        //************以上变化代码**************
+      }
+    }
+  }
+  //定义访问器属性
+  function defProperty(obj, key, val) {
+    Object.defineProperty(obj, key, {
+      get: function () {
+        return val;
+      },
+      set: function (newVal) {
+        if (newVal === val) return;
+        val = newVal;
+        console.log(val)
+      }
+    })
+  }
+
+  //将对于data中属性的操作都转化为对vm属性的操作，所以，原本vm.data[key]就可以直接写     为vm.key这种直接的形式
+  function translateDataToVm(obj, vm) {
+    Object.keys(obj).forEach(key => {
+      defProperty(vm, key, obj[key])
+    });
+  }
+
+  function Vue(options) {
+    this.data = options.data;
+    this.id = options.el;
+
+    //************以下新增代码**************
+    //为vm实例添加访问器属性，对vm的相关属性的读写都会与data中的属性相互关联
+    translateDataToVm(this.data, this);
+    //************以上新增代码**************
+
+    var root = document.getElementById('chai')
+    var dom = domToFragment(root, this);
+    root.appendChild(dom);
+  }
+</script>

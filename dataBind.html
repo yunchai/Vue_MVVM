@@ -1,0 +1,54 @@
+<div id='chai'>
+  <input id='in' v-model="test">
+  {{test}}
+</div>
+
+<script>
+  var vm = new Vue({
+    el: 'chai',
+    data: {
+      test: 'hello two_way'
+    }
+  })
+  //劫持你想要处理的元素，将元素外部的包裹元素传入
+  function domToFragment(node,vm){
+    var domf = document.createDocumentFragment();
+    var child;
+    while(child = node.firstChild){
+      compile(child, vm);     //将dom和vue实例中的data相互关联
+      domf.appendChild(child);
+    }
+    return domf;
+  }
+  function compile(node, vm){
+    var reg = /\{\{(.*)\}\}/;//能够匹配{{test}}这种dom的正则
+    //依据节点的类型做不同的处理
+    //若节点为一般普通元素
+    if(node.nodeType === 1){
+      var attr = node.attributes;//得到该元素的所有属性
+      for(let i=0;i<attr.length;i++){
+        if(attr[i].nodeName === 'v-model'){
+          let name = attr[i].nodeValue;
+          node.value = vm.data[name];
+          node.removeAttribute('v-model');
+        }
+      }
+    }
+
+    //节点类型是text。也就是{{...}}这种形式的话
+    if(node.nodeType === 3){
+      if(reg.test(node.nodeValue)){
+        var name = RegExp.$1;
+        name = name.trim();
+        node.nodeValue = vm.data[name];
+      }
+    }
+  }
+  function Vue(options){
+    this.data = options.data;
+    this.id = options.el;
+    var root = document.getElementById('chai');
+    var dom = domToFragment(root, this);
+    root.appendChild(dom);
+ }
+</script>

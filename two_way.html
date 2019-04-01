@@ -1,0 +1,138 @@
+<div id='chai'>
+  <input id='in' v-model="test">
+  {{test}}
+</div>
+
+<script>
+  var vm = new Vue({
+    el: 'chai',
+    data: {
+      test: 'hello two_way'
+    }
+  })
+  //劫持你想要处理的元素，将元素外部的包裹元素传入
+  function domToFragment(node, vm) {
+    var domf = document.createDocumentFragment();
+    var child;
+    while (child = node.firstChild) {
+      compile(child, vm); //将dom和vue实例中的data相互关联
+      domf.appendChild(child);
+    }
+    return domf;
+  }
+
+  //编译以及实现数据绑定和dom监听
+  function compile(node, vm) {
+    var reg = /\{\{(.*)\}\}/; //能够匹配{{test}}这种dom的正则
+    //依据节点的类型做不同的处理
+    //若节点为一般普通元素
+    if (node.nodeType === 1) {
+      var attr = node.attributes; //得到该元素的所有属性
+      for (let i = 0; i < attr.length; i++) {
+        if (attr[i].nodeName === 'v-model') {
+          let name = attr[i].nodeValue;
+          //添加dom监听，将发生变化的dom的值赋给vue实例
+          node.addEventListener('input', e => {
+            vm[name] = e.target.value;
+          })
+          //****************以下变化代码****************
+          //node.value = vm[name];
+          new Watcher(vm, node, name);
+          //****************以上变化代码****************
+          node.removeAttribute('v-model');
+        }
+      }
+    }
+
+    //节点类型是text。也就是{{...}}这种形式的话
+    if (node.nodeType === 3) {
+      if (reg.test(node.nodeValue)) {
+        var name = RegExp.$1;
+        name = name.trim();
+        //****************以下变化代码****************
+        //执行watcher构造函数需要完成的工作：
+        //1、获取model的值并赋给该文本节点
+        //2、将自己添加到订阅者的队列中
+        new Watcher(vm, node, name);
+        //****************以上变化代码****************
+      }
+    }
+  }
+  //定义访问器属性
+  function defProperty(obj, key, val) {
+    var subscripters = new Subscripters();
+    Object.defineProperty(obj, key, {
+      get: function () {
+        //***************以下新增代码********************
+        //将订阅了这个属性的订阅者放入到这个属性对应的队列中，有了这个if判断就可以保证只有在watcher初始化       的时候才会有加入队列这个动作，保证不会重复加入
+        if (Subscripters.target != null) {
+          subscripters.addSubs(Subscripters.target);
+        }
+        //***************以上新增代码********************
+        return val;
+      },
+      set: function (newVal) {
+        if (newVal === val) return;
+        val = newVal;
+        //****************以下变化代码****************
+        subscripters.notify(); //通知更新
+        //****************以上变化代码****************
+      }
+    })
+  }
+
+  //将对于data中属性的操作都转化为对vm属性的操作，所以，原本vm.data[key]就可以直接写     为vm.key这种直接的形式
+  function translateDataToVm(obj, vm) {
+    Object.keys(obj).forEach(key => {
+      defProperty(vm, key, obj[key])
+    });
+  }
+  
+  function Watcher(vm, node, name) {
+    Subscripters.target = this; //Subscripters大兄弟，我是'name'的订阅者，初来乍到，记得把我加入到主        题'name'的数组中哦。
+    this.vm = vm;
+    this.node = node;
+    this.name = name;
+    this.update(); //这一步主要完成更新和加入更新数组
+    Subscripters.target = null; //Subscripters大兄弟，你既然已经把我加入了主题'name'的更新数组，那么下次    执行update方法的时候就不需要再加入一次啦！！
+  }
+  Watcher.prototype = {
+    update: function () {
+      //这一步会触发vm的访问器属性，进而将watcher放入观察者的队列（只有在watcher初始化的时候会有放入队列这个    操作，所以在放入时需要做一下判断）
+      this.node.nodeValue = this.vm[this.name];
+    }
+  }
+
+  //这个构造方法主要是维护订阅者的队列
+  function Subscripters() {
+    this.target = null; //初始化时置为空，只有在订阅者初始化的时候才会有值
+    this.subs = []; //主题的更新数组
+  }
+
+  Subscripters.prototype = {
+    //将订阅者添加到主题更新数组中
+    addSubs: function (sub) {
+      this.subs.push(sub)
+    },
+    //通知更新数组完成更新
+    notify: function () {
+      this.subs.forEach(sub => {
+        sub.update();
+      })
+    }
+  }
+
+  function Vue(options) {
+    this.data = options.data;
+    this.id = options.el;
+
+    //************以下新增代码**************
+    //为vm实例添加访问器属性，对vm的相关属性的读写都会与data中的属性相互关联
+    translateDataToVm(this.data, this);
+    //************以上新增代码**************
+
+    var root = document.getElementById('chai')
+    var dom = domToFragment(root, this);
+    root.appendChild(dom);
+  }
+</script>
